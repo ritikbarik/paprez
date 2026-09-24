@@ -34,7 +34,7 @@ tsconfig.tsbuildinfo
 next-env.d.ts
 
 # SQLite Databases & Uploads
-prisma/*.db
+# prisma/dev.db is tracked for serverless deployment
 prisma/*.db-journal
 prisma/*.db-shm
 prisma/*.db-wal
