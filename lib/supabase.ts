@@ -121,3 +121,81 @@ export async function deleteDocument(storageKeyOrUrl: string): Promise<boolean> 
 
   return false;
 }
+
+/**
+ * Store and sync login credentials in Supabase Auth via Admin REST API
+ */
+export async function syncUserCredentialsToSupabase(
+  email: string,
+  password?: string,
+  metadata?: { name?: string; role?: string }
+): Promise<{ success: boolean; error?: string }> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return { success: false, error: 'Supabase credentials not configured' };
+  }
+
+  try {
+    const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+      headers: {
+        apikey: supabaseServiceKey,
+        Authorization: `Bearer ${supabaseServiceKey}`
+      }
+    });
+
+    const listData = await listRes.json();
+    const existing = listData?.users?.find(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (existing) {
+      // Update existing user credentials & metadata in Supabase
+      const updatePayload: any = {
+        user_metadata: {
+          ...(existing.user_metadata || {}),
+          ...(metadata || {})
+        }
+      };
+      if (password) updatePayload.password = password;
+
+      await fetch(`${supabaseUrl}/auth/v1/admin/users/${existing.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseServiceKey,
+          Authorization: `Bearer ${supabaseServiceKey}`
+        },
+        body: JSON.stringify(updatePayload)
+      });
+
+      return { success: true };
+    } else {
+      // Create new user credentials in Supabase Auth
+      const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseServiceKey,
+          Authorization: `Bearer ${supabaseServiceKey}`
+        },
+        body: JSON.stringify({
+          email,
+          password: password || 'DemoPass123',
+          email_confirm: true,
+          user_metadata: metadata || { role: 'CUSTOMER' }
+        })
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        return {
+          success: false,
+          error: createData.msg || createData.error_description || 'Failed to create user in Supabase'
+        };
+      }
+      return { success: true };
+    }
+  } catch (err: any) {
+    console.warn('Supabase credential sync failed:', err?.message || err);
+    return { success: false, error: err?.message };
+  }
+}

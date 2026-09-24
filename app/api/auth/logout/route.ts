@@ -6,5 +6,9 @@ export async function POST() {
     maxAge: 0,
     path: '/'
   });
+  response.cookies.set('paprez_user', '', {
+    maxAge: 0,
+    path: '/'
+  });
   return response;
 }

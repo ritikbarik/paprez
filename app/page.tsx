@@ -1,4 +1,14 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+
+interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 const trustItems = [
   { title: 'Secure', text: 'Payments', icon: 'shield', color: 'text-blue-600' },
@@ -299,12 +309,27 @@ function MapCard() {
   );
 }
 
-function MobileAppPreview() {
+function MobileAppPreview({
+  currentUser,
+  onLogout
+}: {
+  currentUser: SessionUser | null;
+  onLogout: () => void;
+}) {
+  const dashboardHref =
+    currentUser?.role === 'SHOP_OWNER'
+      ? '/dashboard/print-shop'
+      : currentUser?.role === 'ADMIN'
+      ? '/dashboard/admin'
+      : currentUser?.role === 'DELIVERY_AGENT'
+      ? '/dashboard/delivery'
+      : '/dashboard/customer';
+
   const quickActions = [
-    { title: 'New Order', text: 'Upload & print', icon: 'route', href: '/auth/signup?role=CUSTOMER', color: 'from-blue-500 to-violet-600' },
-    { title: 'Order History', text: 'Track orders', icon: 'card', href: '/dashboard/customer', color: 'from-emerald-500 to-green-500' },
-    { title: 'Saved Shops', text: 'Your favorites', icon: 'star', href: '/dashboard/customer', color: 'from-pink-500 to-rose-500' },
-    { title: 'Offers', text: 'View deals', icon: 'badge', href: '/dashboard/customer', color: 'from-orange-400 to-orange-600' }
+    { title: 'New Order', text: 'Upload & print', icon: 'route', href: currentUser ? dashboardHref : '/auth/signup?role=CUSTOMER', color: 'from-blue-500 to-violet-600' },
+    { title: 'Order History', text: 'Track orders', icon: 'card', href: dashboardHref, color: 'from-emerald-500 to-green-500' },
+    { title: 'Saved Shops', text: 'Your favorites', icon: 'star', href: dashboardHref, color: 'from-pink-500 to-rose-500' },
+    { title: 'Offers', text: 'View deals', icon: 'badge', href: dashboardHref, color: 'from-orange-400 to-orange-600' }
   ];
 
   return (
@@ -319,29 +344,55 @@ function MobileAppPreview() {
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
-            <Link href="/auth/login" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#080f3f] shadow-sm">
-              Login
-            </Link>
-            <Link href="/auth/signup" className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]">
-              Register
-            </Link>
+            {currentUser ? (
+              <>
+                <Link
+                  href={dashboardHref}
+                  className="rounded-2xl bg-blue-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm"
+                >
+                  Dashboard →
+                </Link>
+                <button
+                  onClick={onLogout}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/login" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#080f3f] shadow-sm">
+                  Login
+                </Link>
+                <Link href="/auth/signup" className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]">
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </header>
 
         <section className="mt-12">
           <h1 className="text-[34px] font-black leading-tight tracking-normal">
-            Good Morning, <span className="inline-block rotate-12">👋</span>
+            Good Morning{currentUser ? `, ${currentUser.name}` : ''} <span className="inline-block rotate-12">👋</span>
           </h1>
-          <p className="mt-1 text-[28px] font-semibold leading-tight text-[#555985]">Welcome back!</p>
+          <p className="mt-1 text-[28px] font-semibold leading-tight text-[#555985]">
+            {currentUser ? 'Welcome back to PAPrez!' : 'Welcome back!'}
+          </p>
         </section>
 
         <section className="mt-7 rounded-[24px] border border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(49,65,130,0.08)]">
           <h2 className="text-[28px] font-black leading-tight">Upload your document</h2>
           <p className="mt-2 text-lg font-semibold leading-tight text-[#555985]">PDF, DOC, DOCX up to 50MB</p>
-          <Link href="/auth/signup?role=CUSTOMER" className="mt-5 grid min-h-[132px] place-items-center rounded-2xl border-2 border-dashed border-indigo-400 bg-white px-4 py-5 text-center text-blue-600">
+          <Link
+            href={currentUser ? dashboardHref : '/auth/signup?role=CUSTOMER'}
+            className="mt-5 grid min-h-[132px] place-items-center rounded-2xl border-2 border-dashed border-indigo-400 bg-white px-4 py-5 text-center text-blue-600"
+          >
             <span>
               <Icon name="upload" className="mx-auto h-16 w-16" />
-              <span className="mt-2 block text-xl font-black">Tap to upload</span>
+              <span className="mt-2 block text-xl font-black">
+                {currentUser ? 'Open Counter to Upload' : 'Tap to upload'}
+              </span>
             </span>
           </Link>
           <div className="mt-4 flex items-center gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
@@ -442,9 +493,63 @@ function MobileAppPreview() {
 }
 
 export default function HomePage() {
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    // 1. Check persistent localStorage session
+    const storedUser = localStorage.getItem('paprez_user');
+    const token = localStorage.getItem('paprez_token');
+
+    if (storedUser && token) {
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (e) {}
+    } else if (token) {
+      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem('paprez_user', JSON.stringify(data.user));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    localStorage.removeItem('paprez_token');
+    localStorage.removeItem('paprez_user');
+    document.cookie = 'paprez_token=; path=/; max-age=0';
+    document.cookie = 'paprez_user=; path=/; max-age=0';
+    setCurrentUser(null);
+    window.location.reload();
+  }
+
+  const dashboardHref =
+    currentUser?.role === 'SHOP_OWNER'
+      ? '/dashboard/print-shop'
+      : currentUser?.role === 'ADMIN'
+      ? '/dashboard/admin'
+      : currentUser?.role === 'DELIVERY_AGENT'
+      ? '/dashboard/delivery'
+      : '/dashboard/customer';
+
+  const roleBadge =
+    currentUser?.role === 'SHOP_OWNER'
+      ? 'Shop Owner'
+      : currentUser?.role === 'ADMIN'
+      ? 'Admin'
+      : currentUser?.role === 'DELIVERY_AGENT'
+      ? 'Delivery'
+      : 'Customer';
+
   return (
     <>
-    <MobileAppPreview />
+    <MobileAppPreview currentUser={currentUser} onLogout={handleLogout} />
     <main className="hidden min-h-screen overflow-hidden bg-[#fbfcff] text-slate-950 lg:block">
       <div className="relative mx-auto min-h-screen max-w-[1800px] rounded-none border-slate-200 bg-[radial-gradient(circle_at_23%_8%,rgba(99,102,241,0.08),transparent_28%),radial-gradient(circle_at_84%_13%,rgba(147,51,234,0.08),transparent_25%),linear-gradient(180deg,#fff_0%,#fbfcff_55%,#fff_100%)] px-5 py-6 sm:px-8 lg:px-16">
         <div className="pointer-events-none absolute bottom-14 left-0 h-72 w-60 bg-[radial-gradient(circle,rgba(99,102,241,0.24)_1px,transparent_1.5px)] bg-[length:16px_16px] opacity-40" />
@@ -460,12 +565,43 @@ export default function HomePage() {
           </Link>
 
           <div className="flex items-center gap-4 lg:justify-end">
-            <Link href="/auth/login" className="rounded-2xl border border-slate-200 bg-white px-9 py-3.5 text-sm font-bold text-[#080f3f] shadow-sm transition hover:border-blue-300">
-              Login
-            </Link>
-            <Link href="/auth/signup" className="rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-3.5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(79,70,229,0.26)] transition hover:-translate-y-0.5">
-              Register
-            </Link>
+            {currentUser ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm text-xs font-bold text-slate-800">
+                  <span className="h-7 w-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-xs">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span>{currentUser.name}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-extrabold uppercase">
+                    {roleBadge}
+                  </span>
+                </div>
+
+                <Link
+                  href={dashboardHref}
+                  className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-black text-white shadow-md hover:shadow-lg transition hover:-translate-y-0.5 inline-flex items-center gap-1.5"
+                >
+                  <span>Dashboard</span>
+                  <span>→</span>
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="rounded-2xl border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-4 py-3 text-sm font-bold text-slate-600 transition"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link href="/auth/login" className="rounded-2xl border border-slate-200 bg-white px-9 py-3.5 text-sm font-bold text-[#080f3f] shadow-sm transition hover:border-blue-300">
+                  Login
+                </Link>
+                <Link href="/auth/signup" className="rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-3.5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(79,70,229,0.26)] transition hover:-translate-y-0.5">
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </nav>
 
@@ -485,11 +621,17 @@ export default function HomePage() {
             </p>
 
             <div className="mt-8 flex flex-col gap-5 sm:flex-row">
-              <Link href="/auth/signup?role=CUSTOMER" className="inline-flex items-center justify-center gap-6 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-4 text-base font-bold text-white shadow-[0_18px_36px_rgba(79,70,229,0.24)] transition hover:-translate-y-0.5">
-                Place an Order
+              <Link
+                href={currentUser ? dashboardHref : "/auth/signup?role=CUSTOMER"}
+                className="inline-flex items-center justify-center gap-6 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-8 py-4 text-base font-bold text-white shadow-[0_18px_36px_rgba(79,70,229,0.24)] transition hover:-translate-y-0.5"
+              >
+                {currentUser ? 'Go to Your Dashboard' : 'Place an Order'}
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-2xl text-blue-600">→</span>
               </Link>
-              <Link href="/dashboard/customer" className="inline-flex items-center justify-center gap-6 rounded-2xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-[#080f3f] shadow-sm transition hover:border-blue-300">
+              <Link
+                href={currentUser ? dashboardHref : "/dashboard/customer"}
+                className="inline-flex items-center justify-center gap-6 rounded-2xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-[#080f3f] shadow-sm transition hover:border-blue-300"
+              >
                 Find Print Shops
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-indigo-50 text-blue-700">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">

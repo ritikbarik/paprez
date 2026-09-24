@@ -94,6 +94,10 @@ export default function LoginPage() {
       localStorage.setItem('paprez_token', data.token);
       localStorage.setItem('paprez_user', JSON.stringify(data.user));
 
+      // Set client cookies for 1 year persistence
+      document.cookie = `paprez_token=${data.token}; path=/; max-age=31536000; SameSite=Lax`;
+      document.cookie = `paprez_user=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=31536000; SameSite=Lax`;
+
       const userRole = (data.user.role as RoleType) || selectedRole;
       const targetRoute = ROLE_PROFILES[userRole]?.targetRoute || '/dashboard/customer';
       router.push(targetRoute);
