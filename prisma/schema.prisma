@@ -47,6 +47,7 @@ model Shop {
   earnings       Float         @default(0)
   urgentFlag     Boolean       @default(false)
   active         Boolean       @default(true)
+  verified       Boolean       @default(true)
   complaints     Complaint[]
   printers       Printer[]
   printAgents    PrintAgent[]

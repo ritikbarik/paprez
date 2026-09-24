@@ -105,13 +105,24 @@ export async function POST(request: Request) {
     }
 
     const token = createToken({ userId: user.id, role: user.role });
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         token,
         user: { id: user.id, name: user.name, email: user.email, role: user.role }
       },
       { status: 201 }
     );
+
+    // Persistent session cookie: 1 year (31,536,000 seconds)
+    response.cookies.set('paprez_token', token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 31536000,
+      path: '/'
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Registration error:', error);
     return NextResponse.json({ error: error.message || 'Registration failed.' }, { status: 500 });

@@ -62,7 +62,13 @@ export async function POST(request: Request) {
     if (binding === 'stapled') bindingCost = pricing.stapleBinding * numCopies;
 
     const rushCost = isRush ? pricing.rushFee : 0;
-    const total = Number((printSubtotal + bindingCost + rushCost).toFixed(2));
+    const shopSubtotal = Number((printSubtotal + bindingCost + rushCost).toFixed(2));
+
+    // Platform commission to website: ₹0.20 per page paid by the user
+    const platformFeeRate = 0.20;
+    const platformFee = Number((pages * numCopies * platformFeeRate).toFixed(2));
+
+    const total = Number((shopSubtotal + platformFee).toFixed(2));
 
     return NextResponse.json({
       calculation: {
@@ -76,6 +82,9 @@ export async function POST(request: Request) {
         printSubtotal,
         bindingCost,
         rushCost,
+        shopSubtotal,
+        platformFeeRate,
+        platformFee,
         total
       }
     });

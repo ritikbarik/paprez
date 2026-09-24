@@ -52,6 +52,7 @@ export async function PATCH(request: Request) {
     if (typeof longitude === 'number') updates.longitude = longitude;
     if (operatingHours) updates.operatingHours = operatingHours;
     if (typeof active === 'boolean') updates.active = active;
+    if (typeof body.verified === 'boolean') updates.verified = body.verified;
     if (services) {
       updates.services = typeof services === 'string' ? services : JSON.stringify(services);
     }

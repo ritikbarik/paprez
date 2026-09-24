@@ -26,13 +26,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   }
 
-  const { shopId, active, feePercentage } = await request.json();
+  const { shopId, active, feePercentage, verified } = await request.json();
   if (!shopId) {
     return NextResponse.json({ error: 'Shop ID is required.' }, { status: 400 });
   }
 
   const updates: any = {};
   if (typeof active === 'boolean') updates.active = active;
+  if (typeof verified === 'boolean') updates.verified = verified;
   if (typeof feePercentage === 'number') updates.feePercentage = feePercentage;
 
   const updatedShop = await prisma.shop.update({

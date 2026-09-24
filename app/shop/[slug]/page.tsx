@@ -43,6 +43,9 @@ interface PriceCalc {
   printSubtotal: number;
   bindingCost: number;
   rushCost: number;
+  shopSubtotal?: number;
+  platformFeeRate?: number;
+  platformFee?: number;
   total: number;
 }
 
@@ -676,6 +679,16 @@ export default function ShopOrderPage() {
                   <span className="font-bold">+₹{priceCalc?.rushCost || shop.pricing.rushFee}</span>
                 </div>
               )}
+
+              {/* Website Platform Commission (₹0.20/page) */}
+              <div className="flex justify-between items-center text-xs text-indigo-800 bg-indigo-50/70 px-3 py-2 rounded-xl border border-indigo-100/80">
+                <span className="flex items-center gap-1.5 font-bold">
+                  <span>🛡️</span> Website Commission (₹0.20 / page)
+                </span>
+                <span className="font-extrabold text-indigo-900">
+                  ₹{priceCalc?.platformFee ?? (uploadedFile ? (uploadedFile.pageCount * copies * 0.2).toFixed(2) : '0.20')}
+                </span>
+              </div>
 
               <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-lg font-black text-slate-950">
                 <span>Total Amount</span>

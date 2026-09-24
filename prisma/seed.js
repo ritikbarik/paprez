@@ -55,6 +55,7 @@ async function main() {
     update: {
       slug: 'abc-xerox',
       active: true,
+      verified: true,
       latitude: 20.2961,
       longitude: 85.8245,
       operatingHours: '8:00 AM - 10:00 PM',

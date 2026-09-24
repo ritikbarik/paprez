@@ -41,7 +41,7 @@ export default function PrintShopDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Main dashboard section tabs
-  const [mainTab, setMainTab] = useState<'QUEUE' | 'MAP_LOCATION' | 'PRINTERS_SERVICES'>('QUEUE');
+  const [mainTab, setMainTab] = useState<'QUEUE' | 'COUNTER_QR' | 'MAP_LOCATION' | 'PRINTERS_SERVICES'>('QUEUE');
   const [queueTab, setQueueTab] = useState<'ALL' | 'QUEUED' | 'ACCEPTED' | 'PRINTING' | 'READY_FOR_PICKUP' | 'COMPLETED'>('ALL');
 
   // Shop details & map location
@@ -400,6 +400,17 @@ export default function PrintShopDashboard() {
                 </button>
 
                 <button
+                  onClick={() => setMainTab('COUNTER_QR')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                    mainTab === 'COUNTER_QR'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>📷 Counter QR Standee</span>
+                </button>
+
+                <button
                   onClick={() => setMainTab('MAP_LOCATION')}
                   className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
                     mainTab === 'MAP_LOCATION'
@@ -673,7 +684,102 @@ export default function PrintShopDashboard() {
               </div>
             )}
 
-            {/* SECTION 2: MAP LOCATION & ADDRESS */}
+            {/* SECTION 2: COUNTER QR STANDEE (FOR COUNTER DESK) */}
+            {mainTab === 'COUNTER_QR' && (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-950 flex items-center gap-2">
+                        <span>📷</span> Your Unique Counter QR Standee
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Print this standee flyer or display it on your counter desk. Customers scan it with their camera to immediately open your shop counter with zero app installs!
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center gap-2 shadow-sm transition"
+                      >
+                        <span>🖨️</span>
+                        <span>Print Standee Flyer</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `${window.location.origin}/shop/${shopSlug}`;
+                          navigator.clipboard.writeText(url);
+                          alert('Counter URL copied to clipboard!');
+                        }}
+                        className="px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 transition"
+                      >
+                        📋 Copy Link
+                      </button>
+
+                      <a
+                        href={`/shop/${shopSlug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition"
+                      >
+                        Open Live Counter ↗
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Printable Standee Card */}
+                  <div className="max-w-md mx-auto rounded-3xl border-2 border-indigo-200 bg-gradient-to-b from-white via-indigo-50/20 to-blue-50/40 p-8 shadow-xl text-center space-y-5 print:border-black print:shadow-none">
+                    <div>
+                      <span className="inline-block px-3 py-1 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest mb-2">
+                        PAPrez Smart Counter
+                      </span>
+                      <h3 className="text-2xl font-black text-slate-950">{shopName}</h3>
+                      <p className="text-xs font-bold text-slate-500 mt-0.5">Instant Digital Print Counter</p>
+                    </div>
+
+                    {/* QR Code Graphic */}
+                    <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm inline-block mx-auto">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                          typeof window !== 'undefined' ? `${window.location.origin}/shop/${shopSlug}` : `https://paprez.vercel.app/shop/${shopSlug}`
+                        )}`}
+                        alt="Shop Counter QR Code"
+                        className="w-56 h-56 mx-auto block"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-sm font-black text-slate-900">📲 Scan with Phone Camera to Print</p>
+                      <p className="text-xs text-slate-500">
+                        Counter URL: <strong className="text-blue-600">paprez.com/shop/{shopSlug}</strong>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-[11px] font-bold text-slate-700 pt-3 border-t border-indigo-100">
+                      <div className="p-2 rounded-xl bg-white/80 border border-slate-200/60">
+                        1. Scan QR
+                      </div>
+                      <div className="p-2 rounded-xl bg-white/80 border border-slate-200/60">
+                        2. Upload File
+                      </div>
+                      <div className="p-2 rounded-xl bg-white/80 border border-slate-200/60">
+                        3. Collect Print
+                      </div>
+                    </div>
+
+                    <div className="pt-2 text-[10px] font-semibold text-slate-500">
+                      🔒 <strong>100% Privacy Guarantee:</strong> Documents are automatically erased from the cloud server immediately after printing. Zero WhatsApp hassle.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 3: MAP LOCATION & ADDRESS */}
             {mainTab === 'MAP_LOCATION' && (
               <div className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur p-6 sm:p-8 shadow-sm space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

@@ -2,23 +2,65 @@
 
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
+import Link from 'next/link';
 
 interface Order {
   id: string;
+  orderNumber?: string;
   title: string;
   status: string;
-  shop: { name: string };
+  shop: { name: string; slug?: string };
   estimatedPrice: number;
   urgency: boolean;
   pickupMethod: string;
+  pickupPin?: string;
+  createdAt: string;
   delivery?: { status: string } | null;
+}
+
+interface NearbyShop {
+  id: string;
+  name: string;
+  slug: string;
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  operatingHours: string;
+  verified: boolean;
+  active: boolean;
+  pricingRules: string;
+  services: string;
+  printers?: Array<{ name: string; capabilities: any }>;
+  distanceKm?: number;
+}
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Number((R * c).toFixed(1));
 }
 
 export default function CustomerDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [shops, setShops] = useState<NearbyShop[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingShops, setLoadingShops] = useState(true);
   const [userRole, setUserRole] = useState('CUSTOMER');
   const [mounted, setMounted] = useState(false);
+
+  // Geolocation & Scan QR modal
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrInputCode, setQrInputCode] = useState('');
+
+  // AI Editor state
   const [documentText, setDocumentText] = useState('');
   const [editInstruction, setEditInstruction] = useState('Fix grammar and make it print-ready.');
   const [pageRange, setPageRange] = useState('1-5');
@@ -26,33 +68,96 @@ export default function CustomerDashboardPage() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
+  function loadCustomerData() {
+    const token = localStorage.getItem('paprez_token');
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    setLoadingOrders(true);
+    fetch('/api/orders', { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.orders) setOrders(data.orders);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingOrders(false));
+
+    fetch('/api/shops')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.shops) setShops(data.shops);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingShops(false));
+  }
+
   useEffect(() => {
     setMounted(true);
     const user = localStorage.getItem('paprez_user');
-    if (user) setUserRole(JSON.parse(user).role);
-    setLoading(true);
-    fetch('/api/orders', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('paprez_token')}` }
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setOrders(data.orders || []);
-      })
-      .finally(() => setLoading(false));
-  }, [mounted]);
+    if (user) {
+      try {
+        setUserRole(JSON.parse(user).role);
+      } catch (e) {}
+    }
+    loadCustomerData();
+
+    // Auto-detect location on initial load if supported
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          setUserCoords({ lat, lon });
+        },
+        () => {}
+      );
+    }
+  }, []);
+
+  function handleDetectLocation() {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const userLat = pos.coords.latitude;
+        const userLon = pos.coords.longitude;
+        setUserCoords({ lat: userLat, lon: userLon });
+
+        const withDist = shops.map((s) => ({
+          ...s,
+          distanceKm: calculateDistance(userLat, userLon, s.latitude ?? 20.2961, s.longitude ?? 85.8245)
+        }));
+        withDist.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+        setShops(withDist);
+        setDetectingLocation(false);
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setDetectingLocation(false);
+      }
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'CONFIRMED':
+      case 'QUEUED':
         return 'bg-blue-50 border-blue-200 text-blue-700';
+      case 'ACCEPTED':
+      case 'PRINTING':
+        return 'bg-purple-50 border-purple-200 text-purple-700';
+      case 'READY_FOR_PICKUP':
+        return 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse';
       case 'COMPLETED':
-        return 'bg-emerald-50 border-emerald-200 text-emerald-700';
       case 'DELIVERED':
         return 'bg-emerald-50 border-emerald-200 text-emerald-700';
       case 'CANCELLED':
+      case 'REJECTED':
         return 'bg-rose-50 border-rose-200 text-rose-700';
       default:
-        return 'bg-amber-50 border-amber-200 text-amber-700';
+        return 'bg-slate-50 border-slate-200 text-slate-700';
     }
   };
 
@@ -109,171 +214,379 @@ export default function CustomerDashboardPage() {
     setAiResult(data.editedText);
   }
 
+  if (!mounted) return null;
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex gap-8 flex-col lg:flex-row">
           <Sidebar role={userRole} />
-          
+
           <div className="flex-1 space-y-8">
-            {/* Header */}
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-sm">
-              <div className="flex items-center justify-between">
+            {/* Header Banner */}
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-7 sm:p-9 text-white shadow-lg relative overflow-hidden">
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                  <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">Customer Dashboard</p>
-                  <h1 className="mt-2 text-3xl sm:text-4xl font-black text-slate-950">Your print orders</h1>
-                </div>
-                <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/60 px-4 py-2 border border-slate-200">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-medium text-slate-700">Live</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white/60 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition">
-                <p className="text-sm text-slate-600 font-medium">Active Orders</p>
-                <p className="mt-3 text-3xl font-black text-blue-600">{orders.length}</p>
-                <p className="mt-1 text-xs text-slate-500">Pending delivery</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/60 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition">
-                <p className="text-sm text-slate-600 font-medium">Recent Shop</p>
-                <p className="mt-3 text-lg font-black text-indigo-600 truncate">{orders[0]?.shop.name || '—'}</p>
-                <p className="mt-1 text-xs text-slate-500">Last used</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/60 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition">
-                <p className="text-sm text-slate-600 font-medium">Est. Total</p>
-                <p className="mt-3 text-3xl font-black text-violet-600">₹{orders[0]?.estimatedPrice ?? 0}</p>
-                <p className="mt-1 text-xs text-slate-500">Latest order</p>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-sm backdrop-blur-sm">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">AI document editor</p>
-                  <h2 className="mt-2 text-2xl font-black text-slate-950">Upload, select a range, and revise</h2>
-                </div>
-                <span className="rounded-full bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">Print-ready assistant</span>
-              </div>
-
-              <div className="mt-6 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-                <div className="space-y-4">
-                  <label className="block rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 p-5 text-center">
-                    <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleDocumentUpload} className="sr-only" />
-                    <span className="block text-sm font-black text-blue-700">Upload PDF, DOC, DOCX, or TXT</span>
-                    <span className="mt-1 block text-xs font-medium text-slate-500">10MB max. Text files can be edited immediately.</span>
-                  </label>
-                  {uploadStatus && <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">{uploadStatus}</p>}
-                  <div>
-                    <label className="text-sm font-bold text-slate-900">Page/data range</label>
-                    <input
-                      value={pageRange}
-                      onChange={(event) => setPageRange(event.target.value)}
-                      placeholder="1-5 or 1,3,7-9"
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white text-xs font-bold uppercase tracking-wider mb-3">
+                    🚀 Zero WhatsApp Hassle • Instant Cloud Counter
                   </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-900">AI instruction</label>
-                    <textarea
-                      value={editInstruction}
-                      onChange={(event) => setEditInstruction(event.target.value)}
-                      rows={4}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
+                  <h1 className="text-3xl sm:text-4xl font-black">Choose a Nearby Shop or Scan Counter QR</h1>
+                  <p className="mt-2 text-sm text-blue-100 max-w-xl">
+                    Walk up to any counter, upload your document, pay seamlessly, and collect your printout. Files are automatically deleted from the server once printed.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleAiEdit}
-                    disabled={aiLoading || !documentText.trim()}
-                    className="w-full rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleDetectLocation}
+                    disabled={detectingLocation}
+                    className="px-5 py-3 rounded-2xl bg-white text-blue-700 font-black text-sm shadow-md hover:bg-blue-50 transition flex items-center justify-center gap-2"
                   >
-                    {aiLoading ? 'Editing...' : 'Edit with AI'}
+                    <span>📍</span>
+                    <span>{detectingLocation ? 'Detecting GPS...' : 'Find Nearest to Me'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQrModalOpen(true)}
+                    className="px-5 py-3 rounded-2xl bg-black/30 backdrop-blur border border-white/30 text-white font-black text-sm hover:bg-black/40 transition flex items-center justify-center gap-2"
+                  >
+                    <span>📷</span>
+                    <span>Scan Counter QR</span>
                   </button>
                 </div>
+              </div>
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <textarea
-                    value={documentText}
-                    onChange={(event) => setDocumentText(event.target.value)}
-                    placeholder="Paste extracted document text here..."
-                    className="min-h-[280px] rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm font-medium leading-6 text-slate-900 outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                  />
-                  <textarea
-                    value={aiResult}
-                    onChange={(event) => setAiResult(event.target.value)}
-                    placeholder="AI-edited output appears here..."
-                    className="min-h-[280px] rounded-2xl border border-slate-200 bg-white p-4 text-sm font-medium leading-6 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
-                </div>
+              {/* Commission & Privacy Badge */}
+              <div className="mt-6 pt-5 border-t border-white/20 flex flex-wrap items-center justify-between text-xs text-blue-100 gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-emerald-300">✓</span> <strong>Fair Pricing:</strong> Transparent ₹0.20 / page website commission
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-amber-300">🔒</span> <strong>Total Privacy:</strong> Documents permanently erased from Supabase upon printing
+                </span>
               </div>
             </div>
 
-            {/* Recent Orders Section */}
-            <div className="rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-sm p-8 shadow-sm">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-2xl font-black text-slate-950">Recent orders</h2>
-                <span className="text-sm text-slate-500">{orders.length} total</span>
+            {/* SECTION 1: AVAILABLE NEARBY PRINT SHOPS */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-950 flex items-center gap-2.5">
+                    <span>🏪</span> Available Print Shops
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select a counter to configure paper size, duplex, and upload your files directly
+                  </p>
+                </div>
+
+                {userCoords && (
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 self-start sm:self-auto">
+                    📍 Sorted by nearest distance
+                  </span>
+                )}
               </div>
 
-              {loading ? (
-                <div className="py-12 text-center">
-                  <p className="text-slate-600 animate-pulse">Loading your orders...</p>
+              {loadingShops ? (
+                <div className="py-12 text-center text-slate-400 font-bold text-sm">
+                  Locating available print shops...
                 </div>
-              ) : orders.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 py-12 text-center">
-                  <p className="text-slate-600">No orders yet.</p>
-                  <p className="mt-1 text-sm text-slate-500">Place your first print request to get started</p>
+              ) : shops.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-sm">
+                  No print shops found in this area yet.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid gap-5 md:grid-cols-2">
+                  {shops.map((shop) => {
+                    let parsedPricing: any = {};
+                    try {
+                      parsedPricing = typeof shop.pricingRules === 'string' ? JSON.parse(shop.pricingRules) : shop.pricingRules;
+                    } catch (e) {}
+
+                    return (
+                      <div
+                        key={shop.id}
+                        className="rounded-3xl border border-slate-200 bg-slate-50/50 hover:bg-white p-6 shadow-sm hover:shadow-md transition space-y-4 flex flex-col justify-between"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg font-black text-slate-950">{shop.name}</h3>
+                                {shop.verified && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span>✓</span> Verified Partner
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">{shop.address}, {shop.city}</p>
+                            </div>
+
+                            {shop.distanceKm !== undefined ? (
+                              <span className="shrink-0 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-black">
+                                {shop.distanceKm} km away
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-xs font-bold text-slate-500">
+                                🕒 {shop.operatingHours || 'Open'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Quick Pricing Tags */}
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 font-bold text-slate-700">
+                              🖤 B&W: ₹{parsedPricing?.bwSingle || 2}/pg
+                            </span>
+                            <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 font-bold text-slate-700">
+                              🌈 Color: ₹{parsedPricing?.colorSingle || 10}/pg
+                            </span>
+                            <span className="px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 font-bold text-purple-700">
+                              +₹0.20 platform fee
+                            </span>
+                          </div>
+
+                          {/* Hardware Fleet Badges */}
+                          {shop.printers && shop.printers.length > 0 && (
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              🖨️ Fleet: <strong>{shop.printers.map((p) => p.name).join(', ')}</strong>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-200/60">
+                          <span className="text-xs font-semibold text-slate-500">
+                            Counter Slug: <code className="text-blue-600 font-bold">/{shop.slug}</code>
+                          </span>
+
+                          <Link
+                            href={`/shop/${shop.slug}`}
+                            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition shadow-sm inline-flex items-center gap-1.5"
+                          >
+                            <span>Open Counter & Upload</span>
+                            <span>→</span>
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 2: RECENT ORDERS & PICKUP PINS */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-950 flex items-center gap-2">
+                    <span>📋</span> Your Print Orders
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Track status and provide your 4-digit pickup PIN at the counter
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-slate-500">{orders.length} orders</span>
+              </div>
+
+              {loadingOrders ? (
+                <div className="py-8 text-center text-slate-400 font-bold text-xs">Loading orders...</div>
+              ) : orders.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm">
+                  You have not placed any orders yet. Choose a shop above to print your first document!
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
                   {orders.map((order) => (
                     <div
                       key={order.id}
-                      className="group rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 hover:bg-white hover:border-blue-200 hover:shadow-md transition"
+                      className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-950 truncate text-sm sm:text-base">{order.title}</h3>
-                          <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm text-slate-600 flex-wrap">
-                            <span className="inline-block px-2 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
-                              {order.shop.name}
-                            </span>
-                            <span className="text-slate-400">•</span>
-                            <span>{order.pickupMethod === 'delivery' ? '🚗 Delivery' : '📍 Pickup'}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
-                          {order.urgency && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold">
-                              🔥 Urgent
-                            </span>
-                          )}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-black text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                            {order.orderNumber || 'PAP-ORDER'}
+                          </span>
+                          <h4 className="font-bold text-slate-950 text-sm">{order.title}</h4>
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
-                              getStatusColor(order.status)
-                            }`}
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${getStatusColor(
+                              order.status
+                            )}`}
                           >
                             {order.status}
                           </span>
                         </div>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between pt-3 border-t border-slate-200">
-                        <p className="text-sm font-medium text-slate-600">
-                          {order.delivery ? `📦 ${order.delivery.status}` : '⏳ In queue'}
+
+                        <p className="text-xs text-slate-500">
+                          Shop: <strong>{order.shop?.name}</strong> • Amount: <strong>₹{order.estimatedPrice}</strong> •{' '}
+                          {new Date(order.createdAt).toLocaleDateString()}
                         </p>
-                        <p className="font-bold text-slate-950">₹{order.estimatedPrice.toFixed(2)}</p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {order.pickupPin && order.status !== 'COMPLETED' && (
+                          <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold text-center">
+                            PIN: <span className="font-mono text-base font-black tracking-widest">{order.pickupPin}</span>
+                          </div>
+                        )}
+
+                        <Link
+                          href={`/order/${order.id}`}
+                          className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700"
+                        >
+                          View Receipt →
+                        </Link>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* SECTION 3: AI DOCUMENT PREPARATION ASSISTANT */}
+            <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 sm:p-8 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h2 className="text-xl font-black text-slate-950 flex items-center gap-2">
+                    <span>✨</span> Pre-Print Document Polisher
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Fix grammar, generate cover pages, or extract specific page ranges before sending to print
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 self-start sm:self-auto">
+                  Powered by Qwen AI
+                </span>
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr] pt-2">
+                <div className="space-y-4">
+                  <label className="block rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 p-5 text-center cursor-pointer hover:bg-blue-50 transition">
+                    <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleDocumentUpload} className="sr-only" />
+                    <span className="block text-sm font-black text-blue-700">Select Document to Polish</span>
+                    <span className="mt-1 block text-xs font-medium text-slate-500">PDF, DOC, DOCX, TXT (up to 25MB)</span>
+                  </label>
+                  {uploadStatus && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">{uploadStatus}</p>}
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700">Instruction for AI</label>
+                    <textarea
+                      value={editInstruction}
+                      onChange={(e) => setEditInstruction(e.target.value)}
+                      rows={3}
+                      placeholder="e.g. Format as academic report with bold headings, fix typos..."
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAiEdit}
+                    disabled={aiLoading || !documentText.trim()}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md disabled:opacity-50"
+                  >
+                    {aiLoading ? 'Polishing with Qwen AI...' : 'Polish Document →'}
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Source Text</label>
+                    <textarea
+                      value={documentText}
+                      onChange={(e) => setDocumentText(e.target.value)}
+                      placeholder="Source document text..."
+                      className="w-full h-48 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-mono outline-none focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">AI Output</label>
+                    <textarea
+                      value={aiResult}
+                      onChange={(e) => setAiResult(e.target.value)}
+                      placeholder="Polished print-ready result..."
+                      className="w-full h-48 rounded-xl border border-slate-200 bg-white p-3 text-xs font-mono outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* SCAN COUNTER QR CODE MODAL */}
+      {qrModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📷</span>
+                <h3 className="text-lg font-black text-slate-950">Counter QR Quick Access</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrModalOpen(false)}
+                className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Standing at a print shop counter? Enter the shop code or select one of the registered hubs below to open the counter upload page instantly.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (qrInputCode.trim()) {
+                  window.location.href = `/shop/${qrInputCode.trim().toLowerCase()}`;
+                }
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Enter Shop Slug or Counter Code:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. abc-xerox or campus-prints"
+                    value={qrInputCode}
+                    onChange={(e) => setQrInputCode(e.target.value)}
+                    className="flex-1 p-3 rounded-xl border border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                  <button
+                    type="submit"
+                    className="px-5 py-3 rounded-xl bg-blue-600 text-white font-black text-xs hover:bg-blue-700 transition"
+                  >
+                    Open →
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Campus Shortcuts:</p>
+              <div className="flex flex-wrap gap-2">
+                {shops.slice(0, 4).map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/shop/${s.slug}`}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-xs font-bold text-slate-800 transition"
+                  >
+                    🏪 {s.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

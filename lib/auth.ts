@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'paprez_secret_demo';
-const JWT_EXPIRE = '30d';
+const JWT_EXPIRE = '365d';
 
 export function hashPassword(password: string) {
   return bcrypt.hash(password, 10);

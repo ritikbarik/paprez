@@ -115,10 +115,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
   }
 
-  // 4. Ready for Pickup
+  // 4. Ready for Pickup (Printing is complete -> permanently delete document from Supabase Storage for privacy)
   else if (payload.status === 'READY_FOR_PICKUP') {
     updates.status = 'READY_FOR_PICKUP';
     timeline.push({ status: 'READY_FOR_PICKUP', time: new Date().toISOString() });
+
+    // Permanently purge document from Supabase storage once printed
+    if (order.storageKey || (order.documentUrl && !order.documentUrl.startsWith('[DELETED'))) {
+      await deleteDocument(order.storageKey || order.documentUrl);
+      updates.documentUrl = '[DELETED_AFTER_PRINT]';
+    }
   }
 
   // 5. Rejection / Cancellation
