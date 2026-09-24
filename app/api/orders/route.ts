@@ -4,6 +4,32 @@ import { getUserFromRequest, addNotification } from '@/lib/utils';
 
 export async function GET(request: Request) {
   const user = await getUserFromRequest(request);
+  const isShopMode = request.headers.get('x-shop-mode') === 'true';
+  const shopIdHeader = request.headers.get('x-shop-id');
+
+  // If request comes from the shop operating terminal
+  if (isShopMode && (!user || user.role === 'SHOP_OWNER')) {
+    let targetShop = null;
+    if (user && user.role === 'SHOP_OWNER') {
+      targetShop = await prisma.shop.findUnique({ where: { ownerId: user.id } });
+    }
+    if (!targetShop && shopIdHeader) {
+      targetShop = await prisma.shop.findUnique({ where: { id: shopIdHeader } });
+    }
+    if (!targetShop) {
+      targetShop = await prisma.shop.findFirst({ where: { slug: 'abc-xerox' } });
+    }
+
+    if (targetShop) {
+      const orders = await prisma.order.findMany({
+        where: { shopId: targetShop.id },
+        orderBy: { createdAt: 'desc' },
+        include: { customer: true, shop: true, delivery: true, printSetting: true, payment: true }
+      });
+      return NextResponse.json({ orders, shop: targetShop });
+    }
+  }
+
   if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   if (user.role === 'ADMIN') {
@@ -20,9 +46,9 @@ export async function GET(request: Request) {
     const orders = await prisma.order.findMany({
       where: { shopId: shop.id },
       orderBy: { createdAt: 'desc' },
-      include: { customer: true, delivery: true, printSetting: true, payment: true }
+      include: { customer: true, shop: true, delivery: true, printSetting: true, payment: true }
     });
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders, shop });
   }
 
   if (user.role === 'DELIVERY_AGENT') {

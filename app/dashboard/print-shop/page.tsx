@@ -96,19 +96,24 @@ export default function PrintShopDashboard() {
   const [pinErrors, setPinErrors] = useState<{ [orderId: string]: string }>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  function loadDashboardData() {
+  function loadInitialShopData() {
     const token = localStorage.getItem('paprez_token');
-    fetch('/api/orders', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((res) => res.json())
+    const headers: HeadersInit = {
+      'x-shop-mode': 'true'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    fetch('/api/orders', { headers })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        setOrders(data.orders || []);
-        if (data.orders && data.orders[0]?.shop) {
-          const s = data.orders[0].shop;
-          setShopId(s.id);
-          setShopName(s.name);
-          setShopSlug(s.slug);
+        if (data?.orders && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+        }
+        if (data?.shop || (data?.orders && data.orders[0]?.shop)) {
+          const s = data.shop || data.orders[0].shop;
+          if (s.id) setShopId(s.id);
+          if (s.name) setShopName(s.name);
+          if (s.slug) setShopSlug(s.slug);
           if (s.address) setShopAddress(s.address);
           if (s.city) setShopCity(s.city);
           if (s.phone) setShopPhone(s.phone);
@@ -132,15 +137,32 @@ export default function PrintShopDashboard() {
           }
         }
       })
-      .catch((err) => console.error('Failed to load orders', err))
+      .catch((err) => console.error('Failed to load shop data', err))
       .finally(() => setLoading(false));
 
-    // Also fetch shop details with printers
-    fetch(`/api/shops/abc-xerox`)
-      .then((res) => res.json())
+    fetch('/api/shops/abc-xerox')
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.shop?.printers && data.shop.printers.length > 0) {
+        if (data?.shop?.printers && data.shop.printers.length > 0) {
           setPrinters(data.shop.printers);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function refreshOrdersOnly() {
+    const token = localStorage.getItem('paprez_token');
+    const headers: HeadersInit = {
+      'x-shop-mode': 'true'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    fetch('/api/orders', { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        // Only update orders if a valid array is returned; never flash empty state
+        if (data?.orders && Array.isArray(data.orders)) {
+          setOrders(data.orders);
         }
       })
       .catch(() => {});
@@ -149,17 +171,31 @@ export default function PrintShopDashboard() {
   useEffect(() => {
     setMounted(true);
     const user = localStorage.getItem('paprez_user');
-    if (user) setUserRole(JSON.parse(user).role);
-    loadDashboardData();
+    if (user) {
+      try {
+        setUserRole(JSON.parse(user).role);
+      } catch (e) {}
+    }
+    loadInitialShopData();
 
-    // Auto-refresh queue every 5 seconds
-    const interval = setInterval(loadDashboardData, 5000);
+    // Silently refresh queue orders every 4 seconds without resetting form states or toggling loading
+    const interval = setInterval(refreshOrdersOnly, 4000);
     return () => clearInterval(interval);
   }, []);
 
   async function updateOrderStatus(orderId: string, status: string, additionalPayload: object = {}) {
     setActionLoading(orderId);
     setPinErrors((prev) => ({ ...prev, [orderId]: '' }));
+
+    // Optimistically update order status immediately so UI updates without lag or disappearance
+    setOrders((prev) =>
+      prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord))
+    );
+
+    // If accepted from QUEUED tab, switch to in-progress tab so the job stays in view
+    if (status === 'ACCEPTED' && queueTab === 'QUEUED') {
+      setQueueTab('PRINTING');
+    }
 
     try {
       const token = localStorage.getItem('paprez_token');
@@ -184,6 +220,7 @@ export default function PrintShopDashboard() {
       );
     } catch (err: any) {
       setPinErrors((prev) => ({ ...prev, [orderId]: err.message }));
+      refreshOrdersOnly();
     } finally {
       setActionLoading(null);
     }
@@ -330,14 +367,17 @@ export default function PrintShopDashboard() {
   // Filter orders by active queue tab
   const filteredOrders = orders.filter((o) => {
     if (queueTab === 'ALL') return true;
+    if (queueTab === 'PRINTING') return o.status === 'PRINTING' || o.status === 'ACCEPTED';
     return o.status === queueTab;
   });
 
   const queuedCount = orders.filter((o) => o.status === 'QUEUED').length;
-  const printingCount = orders.filter((o) => o.status === 'PRINTING' || o.status === 'ACCEPTED').length;
+  const inProgressCount = orders.filter((o) => o.status === 'PRINTING' || o.status === 'ACCEPTED').length;
+  const printingCount = inProgressCount;
   const readyCount = orders.filter((o) => o.status === 'READY_FOR_PICKUP').length;
+  const completedCount = orders.filter((o) => o.status === 'COMPLETED').length;
   const totalRevenue = orders
-    .filter((o) => o.status === 'COMPLETED' || o.status === 'READY_FOR_PICKUP' || o.status === 'PRINTING')
+    .filter((o) => o.status === 'COMPLETED' || o.status === 'READY_FOR_PICKUP' || o.status === 'PRINTING' || o.status === 'ACCEPTED')
     .reduce((sum, o) => sum + (o.estimatedPrice || 0), 0);
 
   const mapEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.008}%2C${latitude - 0.006}%2C${longitude + 0.008}%2C${latitude + 0.006}&layer=mapnik&marker=${latitude}%2C${longitude}`;
@@ -483,11 +523,11 @@ export default function PrintShopDashboard() {
                     {/* Filter Tabs */}
                     <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100 rounded-2xl text-xs font-bold">
                       {[
-                        { id: 'ALL', label: 'All Orders' },
+                        { id: 'ALL', label: `All Orders (${orders.length})` },
                         { id: 'QUEUED', label: `Queued (${queuedCount})` },
-                        { id: 'PRINTING', label: 'Printing' },
-                        { id: 'READY_FOR_PICKUP', label: `Ready (${readyCount})` },
-                        { id: 'COMPLETED', label: 'Completed' }
+                        { id: 'PRINTING', label: `In Progress (${inProgressCount})` },
+                        { id: 'READY_FOR_PICKUP', label: `Ready for Pickup (${readyCount})` },
+                        { id: 'COMPLETED', label: `Completed (${completedCount})` }
                       ].map((tab) => (
                         <button
                           key={tab.id}
@@ -504,7 +544,7 @@ export default function PrintShopDashboard() {
                     </div>
                   </div>
 
-                  {loading ? (
+                  {loading && orders.length === 0 ? (
                     <div className="py-12 text-center text-slate-500 text-sm font-semibold animate-pulse">
                       Loading queue orders...
                     </div>
