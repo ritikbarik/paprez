@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  name           String
+  email          String         @unique
+  password       String
+  role           String         @default("CUSTOMER") // CUSTOMER, SHOP_OWNER, DELIVERY_AGENT, ADMIN
+  phone          String?
+  active         Boolean        @default(true)
+  shop           Shop?          @relation("ShopOwner")
+  shopId         String?
+  assignedOrders Order[]        @relation("OrderDeliveryAgent")
+  deliveries     Delivery[]     @relation("DeliveryAgentAssignments")
+  notifications  Notification[]
+  orders         Order[]        @relation("CustomerOrders")
+  complaints     Complaint[]    @relation("ComplaintReporter")
+}
+
+model Shop {
+  id             String        @id @default(cuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  name           String
+  slug           String        @unique @default("shop")
+  owner          User          @relation("ShopOwner", fields: [ownerId], references: [id])
+  ownerId        String        @unique
+  city           String
+  address        String
+  phone          String
+  latitude       Float         @default(20.2961)
+  longitude      Float         @default(85.8245)
+  operatingHours String        @default("8:00 AM - 10:00 PM")
+  services       String        @default("[\"B&W Printing\", \"Color Printing\", \"Duplex Printing\", \"Spiral Binding\", \"Staple Binding\", \"Lamination\", \"Rush Priority\"]")
+  feePercentage  Int           @default(10)
+  pricingRules   String        @default("{\"bwSingle\":2,\"bwDuplex\":3,\"colorSingle\":10,\"colorDuplex\":18,\"spiralBinding\":30,\"stapleBinding\":10,\"lamination\":20,\"rushFee\":20}")
+  orders         Order[]
+  earnings       Float         @default(0)
+  urgentFlag     Boolean       @default(false)
+  active         Boolean       @default(true)
+  complaints     Complaint[]
+  printers       Printer[]
+  printAgents    PrintAgent[]
+}
+
+model Order {
+  id              String             @id @default(cuid())
+  orderNumber     String             @default("PAP-1000") // e.g. PAP-1024
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  customer        User?              @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerId      String?
+  customerPhone   String?
+  shop            Shop               @relation(fields: [shopId], references: [id])
+  shopId          String
+  deliveryAgent   User?              @relation("OrderDeliveryAgent", fields: [deliveryAgentId], references: [id])
+  deliveryAgentId String?
+  status          String             @default("QUEUED") // CREATED, PAYMENT_PENDING, QUEUED, ACCEPTED, PRINTING, READY_FOR_PICKUP, COMPLETED, REJECTED, CANCELLED
+  title           String
+  notes           String?
+  urgency         Boolean            @default(false)
+  pickupMethod    String             @default("pickup") // pickup | delivery
+  pickupPin       String             @default("1234") // 4-digit pickup code
+  estimatedPrice  Float              @default(0)
+  estimatedTime   String             @default("15-30 mins")
+  pageCount       Int                @default(1)
+  documentUrl     String
+  storageKey      String?
+  statusTimeline  String             @default("[]")
+  payment         Payment?
+  printSetting    OrderPrintSetting?
+  delivery        Delivery?
+  notifications   Notification[]
+  completedAt     DateTime?
+  rejectedReason  String?
+  assignedPrinterId String?
+  assignedPrinter   Printer?         @relation(fields: [assignedPrinterId], references: [id])
+}
+
+model OrderPrintSetting {
+  id          String   @id @default(cuid())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String   @unique
+  color       Boolean  @default(false)
+  doubleSided Boolean  @default(false)
+  copies      Int      @default(1)
+  pageRange   String   @default("all")
+  paperSize   String   @default("A4")
+  binding     String   @default("none") // none, stapled, spiral
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String   @unique
+  amount         Float
+  status         String   @default("PAID") // PENDING, PAID, FAILED, REFUNDED
+  provider       String   @default("razorpay")
+  transaction    String?
+  gatewayOrderId String?
+  idempotencyKey String?
+}
+
+model Delivery {
+  id             String   @id @default(cuid())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String   @unique
+  agent          User?    @relation("DeliveryAgentAssignments", fields: [agentId], references: [id])
+  agentId        String?
+  pickupAddress  String
+  dropoffAddress String
+  status         String   @default("ASSIGNED")
+  otpCode        String
+}
+
+model PrintAgent {
+  id            String    @id @default(cuid())
+  shopId        String
+  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  agentName     String    @default("Windows Print Station")
+  tokenHash     String?
+  status        String    @default("ONLINE")
+  lastHeartbeat DateTime  @default(now())
+  printers      Printer[]
+}
+
+model Printer {
+  id           String      @id @default(cuid())
+  shopId       String
+  shop         Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  agentId      String?
+  agent        PrintAgent? @relation(fields: [agentId], references: [id])
+  name         String      // e.g. HP LaserJet Pro M404dn
+  model        String?
+  capabilities String      @default("{\"color\":false,\"duplex\":true,\"sizes\":[\"A4\"]}")
+  status       String      @default("ONLINE")
+  orders       Order[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  order     Order?   @relation(fields: [orderId], references: [id])
+  orderId   String?
+  message   String
+  category  String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Complaint {
+  id           String    @id @default(cuid())
+  reporter     User      @relation("ComplaintReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId   String
+  targetShop   Shop?     @relation(fields: [targetShopId], references: [id])
+  targetShopId String?
+  message      String
+  status       String    @default("open")
+  resolution   String?
+  createdAt    DateTime  @default(now())
+}

@@ -1,0 +1,48 @@
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Dependencies
+node_modules/
+
+# Environment Variables & Secrets
+.env
+.env*.local
+.env.production
+.env.development
+!.env.example
+
+# OS and IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# SQLite Databases & Uploads
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
+public/uploads/*
+!public/uploads/.gitkeep
+build-output.txt
+.tempmediaStorage/
+
+# Internal documentation and planning files (keep ONLY README.md)
+*.md
+!README.md
