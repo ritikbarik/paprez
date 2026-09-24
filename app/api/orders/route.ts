@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   const isShopMode = request.headers.get('x-shop-mode') === 'true';
   const shopIdHeader = request.headers.get('x-shop-id');
 
-  // If request comes from the shop operating terminal
-  if (isShopMode && (!user || user.role === 'SHOP_OWNER')) {
+  // If request comes from the shop operating terminal (accessible to all authenticated users & customers)
+  if (isShopMode) {
     let targetShop = null;
     if (user && user.role === 'SHOP_OWNER') {
       targetShop = await prisma.shop.findUnique({ where: { ownerId: user.id } });
@@ -18,6 +18,9 @@ export async function GET(request: Request) {
     }
     if (!targetShop) {
       targetShop = await prisma.shop.findFirst({ where: { slug: 'abc-xerox' } });
+    }
+    if (!targetShop) {
+      targetShop = await prisma.shop.findFirst();
     }
 
     if (targetShop) {

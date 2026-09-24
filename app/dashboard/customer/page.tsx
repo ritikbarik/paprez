@@ -245,21 +245,52 @@ export default function CustomerDashboardPage() {
   if (!mounted) return null;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex gap-8 flex-col lg:flex-row">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 pb-24 xl:pb-12">
+      <div className="w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+        <div className="flex gap-6 xl:gap-8 flex-col xl:flex-row">
           <Sidebar role={userRole} />
 
-          <div className="flex-1 space-y-8">
+          <div className="flex-1 space-y-6 sm:space-y-8 min-w-0">
+            {/* Top Navigation Breadcrumbs & Portal Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
+              <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500 overflow-x-auto whitespace-nowrap pb-0.5">
+                <Link href="/" className="hover:text-blue-600 transition flex items-center gap-1">
+                  <span>🏠</span>
+                  <span>Home</span>
+                </Link>
+                <span>/</span>
+                <span className="text-slate-900 font-bold">Customer Hub & Orders</span>
+              </nav>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/dashboard/print-shop"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition shadow-xs"
+                >
+                  <span>⚡</span>
+                  <span className="hidden sm:inline">Switch to Shop Terminal</span>
+                  <span className="sm:hidden">Shop Terminal</span>
+                  <span>→</span>
+                </Link>
+                <Link
+                  href="/shop/abc-xerox"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
+                >
+                  <span>👁️</span>
+                  <span>Counter</span>
+                </Link>
+              </div>
+            </div>
+
             {/* Header Banner */}
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-7 sm:p-9 text-white shadow-lg relative overflow-hidden">
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-6 sm:p-9 text-white shadow-lg relative overflow-hidden">
               <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur border border-white/30 text-white text-xs font-bold uppercase tracking-wider mb-3">
                     🚀 Zero WhatsApp Hassle • Instant Cloud Counter
                   </div>
-                  <h1 className="text-3xl sm:text-4xl font-black">Choose a Nearby Shop or Scan Counter QR</h1>
-                  <p className="mt-2 text-sm text-blue-100 max-w-xl">
+                  <h1 className="text-2xl sm:text-4xl font-black">Choose a Nearby Shop or Scan Counter QR</h1>
+                  <p className="mt-2 text-xs sm:text-sm text-blue-100 max-w-xl">
                     Walk up to any counter, upload your document, pay seamlessly, and collect your printout. Files are automatically deleted from the server once printed.
                   </p>
                 </div>

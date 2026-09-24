@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Sidebar } from '@/components/layout/Sidebar';
 
 interface OrderItem {
@@ -383,12 +384,43 @@ export default function PrintShopDashboard() {
   const mapEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.008}%2C${latitude - 0.006}%2C${longitude + 0.008}%2C${latitude + 0.006}&layer=mapnik&marker=${latitude}%2C${longitude}`;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/50">
-      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex gap-8 flex-col lg:flex-row">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/50 pb-24 xl:pb-12">
+      <div className="w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+        <div className="flex gap-6 xl:gap-8 flex-col xl:flex-row">
           <Sidebar role={userRole} />
 
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 space-y-6 min-w-0">
+            {/* Top Navigation Breadcrumbs & Cross-Portal Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
+              <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500 overflow-x-auto whitespace-nowrap pb-0.5">
+                <Link href="/" className="hover:text-blue-600 transition flex items-center gap-1">
+                  <span>🏠</span>
+                  <span>Home</span>
+                </Link>
+                <span>/</span>
+                <span className="text-slate-900 font-bold truncate max-w-[200px]">Shop Terminal ({shopName})</span>
+              </nav>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/dashboard/customer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100 transition shadow-xs"
+                >
+                  <span>🧑</span>
+                  <span className="hidden sm:inline">Switch to Customer View</span>
+                  <span className="sm:hidden">Customer View</span>
+                  <span>→</span>
+                </Link>
+                <Link
+                  href={`/shop/${shopSlug}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
+                >
+                  <span>👁️</span>
+                  <span>Counter Page</span>
+                </Link>
+              </div>
+            </div>
+
             {/* Header with Shop Details & Master Tabs */}
             <div className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur p-6 sm:p-8 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -399,11 +431,11 @@ export default function PrintShopDashboard() {
                       slug: /{shopSlug}
                     </span>
                   </div>
-                  <h1 className="mt-1 text-3xl font-black text-slate-950">{shopName}</h1>
+                  <h1 className="mt-1 text-2xl sm:text-3xl font-black text-slate-950">{shopName}</h1>
                   <p className="text-xs text-slate-500 mt-1">📍 {shopAddress}, {shopCity} • 🕒 {operatingHours}</p>
                 </div>
 
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <a
                     href={`/shop/${shopSlug}`}
                     target="_blank"
@@ -428,10 +460,10 @@ export default function PrintShopDashboard() {
               </div>
 
               {/* Main Section Navigation Tabs */}
-              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
+              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 whitespace-nowrap">
                 <button
                   onClick={() => setMainTab('QUEUE')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
                     mainTab === 'QUEUE'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -521,7 +553,7 @@ export default function PrintShopDashboard() {
                     <h2 className="text-xl font-black text-slate-950">Active Counter Orders</h2>
 
                     {/* Filter Tabs */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100 rounded-2xl text-xs font-bold">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 bg-slate-100 rounded-2xl text-xs font-bold whitespace-nowrap max-w-full">
                       {[
                         { id: 'ALL', label: `All Orders (${orders.length})` },
                         { id: 'QUEUED', label: `Queued (${queuedCount})` },
@@ -532,7 +564,7 @@ export default function PrintShopDashboard() {
                         <button
                           key={tab.id}
                           onClick={() => setQueueTab(tab.id as any)}
-                          className={`px-3 py-1.5 rounded-xl transition ${
+                          className={`px-3 py-1.5 rounded-xl transition shrink-0 ${
                             queueTab === tab.id
                               ? 'bg-white text-slate-950 shadow-sm'
                               : 'text-slate-600 hover:text-slate-900'

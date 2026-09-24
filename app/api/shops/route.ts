@@ -15,7 +15,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const user = await getUserFromRequest(request);
-    if (!user || (user.role !== 'SHOP_OWNER' && user.role !== 'ADMIN')) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
@@ -34,10 +34,20 @@ export async function PATCH(request: Request) {
       active
     } = body;
 
-    // Find shop owned by this user (or by shopId if admin)
-    const shop = await prisma.shop.findFirst({
-      where: user.role === 'ADMIN' && shopId ? { id: shopId } : { ownerId: user.id }
-    });
+    // Find shop owned by this user (or by shopId, or fallback to demo shop)
+    let shop = null;
+    if (shopId) {
+      shop = await prisma.shop.findUnique({ where: { id: shopId } });
+    }
+    if (!shop && user.role === 'SHOP_OWNER') {
+      shop = await prisma.shop.findUnique({ where: { ownerId: user.id } });
+    }
+    if (!shop) {
+      shop = await prisma.shop.findFirst({ where: { slug: 'abc-xerox' } });
+    }
+    if (!shop) {
+      shop = await prisma.shop.findFirst();
+    }
 
     if (!shop) {
       return NextResponse.json({ error: 'Shop not found.' }, { status: 404 });
@@ -76,13 +86,19 @@ export async function PATCH(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'SHOP_OWNER') {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
-    const shop = await prisma.shop.findUnique({
+    let shop = await prisma.shop.findUnique({
       where: { ownerId: user.id }
     });
+    if (!shop) {
+      shop = await prisma.shop.findFirst({ where: { slug: 'abc-xerox' } });
+    }
+    if (!shop) {
+      shop = await prisma.shop.findFirst();
+    }
 
     if (!shop) {
       return NextResponse.json({ error: 'Shop not found.' }, { status: 404 });

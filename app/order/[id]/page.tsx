@@ -155,18 +155,42 @@ export default function OrderTrackingPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/20 text-slate-900 pb-16">
+      {/* Header with Back Navigation & Portal Links */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 sm:px-6">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm">
-              P
-            </span>
-            <span className="font-black text-lg text-slate-950">PAPrez</span>
-          </Link>
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/dashboard/customer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition"
+              title="Back to Customer Orders"
+            >
+              <span>←</span>
+              <span className="hidden sm:inline">Back to My Orders</span>
+              <span className="sm:hidden">Orders</span>
+            </Link>
 
-          <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-extrabold text-xs">
-            #{order.orderNumber}
-          </span>
+            <Link href="/" className="flex items-center gap-1.5">
+              <span className="h-7 w-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs">
+                P
+              </span>
+              <span className="font-black text-base text-slate-950 hidden md:inline">PAPrez</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/print-shop"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition"
+              title="View from Shop Terminal"
+            >
+              <span>⚡</span>
+              <span className="hidden sm:inline">Shop View</span>
+            </Link>
+
+            <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-extrabold text-xs">
+              #{order.orderNumber}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -188,7 +212,20 @@ export default function OrderTrackingPage() {
         </div>
       )}
 
-      <div className="max-w-xl mx-auto px-4 pt-6 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 pt-4 space-y-5">
+        {/* Navigation Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500 overflow-x-auto whitespace-nowrap pb-1">
+          <Link href="/" className="hover:text-blue-600 transition flex items-center gap-1">
+            <span>🏠</span>
+            <span>Home</span>
+          </Link>
+          <span>/</span>
+          <Link href="/dashboard/customer" className="hover:text-blue-600 transition">
+            My Orders
+          </Link>
+          <span>/</span>
+          <span className="text-slate-900 font-bold truncate">#{order.orderNumber}</span>
+        </nav>
         {/* Status Hero Card */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm text-center">
           <p className="text-xs uppercase font-extrabold tracking-wider text-slate-500">Live Queue Status</p>

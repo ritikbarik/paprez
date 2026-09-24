@@ -326,168 +326,264 @@ function MobileAppPreview({
       : '/dashboard/customer';
 
   const quickActions = [
-    { title: 'New Order', text: 'Upload & print', icon: 'route', href: currentUser ? dashboardHref : '/auth/signup?role=CUSTOMER', color: 'from-blue-500 to-violet-600' },
-    { title: 'Order History', text: 'Track orders', icon: 'card', href: dashboardHref, color: 'from-emerald-500 to-green-500' },
-    { title: 'Saved Shops', text: 'Your favorites', icon: 'star', href: dashboardHref, color: 'from-pink-500 to-rose-500' },
-    { title: 'Offers', text: 'View deals', icon: 'badge', href: dashboardHref, color: 'from-orange-400 to-orange-600' }
+    { title: 'New Print Order', text: 'Upload & customize', icon: 'route', href: '/dashboard/customer', color: 'from-blue-500 to-violet-600' },
+    { title: 'Shop Terminal', text: 'Live counter queue', icon: 'printer', href: '/dashboard/print-shop', color: 'from-indigo-500 to-blue-600' },
+    { title: 'Nearby Shops', text: 'Explore local hubs', icon: 'star', href: '/dashboard/customer', color: 'from-emerald-500 to-teal-500' },
+    { title: 'Direct Counter', text: 'Order at ABC Xerox', icon: 'badge', href: '/shop/abc-xerox', color: 'from-orange-400 to-amber-600' }
   ];
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fbfcff] text-[#080f3f] lg:hidden">
-      <div className="mx-auto w-full max-w-md px-5 pb-9 pt-7 sm:max-w-2xl sm:px-8 md:max-w-5xl md:px-10">
-        <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3">
-            <LogoMark />
-            <span>
-              <span className="block text-4xl font-black leading-none tracking-normal">PAPrez</span>
-              <span className="block text-base font-medium leading-tight text-[#555985]">Smart Printing Simplified.</span>
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#fbfcff] text-[#080f3f] pb-24 lg:hidden">
+      <div className="mx-auto w-full max-w-lg px-4 pt-5 pb-8 sm:max-w-2xl sm:px-6">
+        {/* Top Header */}
+        <header className="flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2.5 min-w-0">
+            <span className="h-9 w-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-sm shrink-0">
+              P
             </span>
+            <div className="min-w-0">
+              <span className="block text-2xl font-black leading-none tracking-tight text-slate-900">PAPrez</span>
+              <span className="block text-[11px] font-semibold text-slate-500 truncate mt-0.5">Smart Printing Simplified</span>
+            </div>
           </Link>
+
           <div className="flex shrink-0 items-center gap-2">
             {currentUser ? (
-              <>
+              <div className="flex items-center gap-1.5">
                 <Link
                   href={dashboardHref}
-                  className="rounded-2xl bg-blue-600 px-3.5 py-2.5 text-xs font-black text-white shadow-sm"
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-blue-700 transition"
                 >
                   Dashboard →
                 </Link>
                 <button
                   onClick={onLogout}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700"
+                  className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-700 transition"
+                  title="Sign Out"
                 >
-                  Sign Out
+                  🚪
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                <Link href="/auth/login" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#080f3f] shadow-sm">
+              <div className="flex items-center gap-2">
+                <Link href="/auth/login" className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black text-slate-800 shadow-sm">
                   Login
                 </Link>
-                <Link href="/auth/signup" className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.22)]">
+                <Link href="/auth/signup" className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black text-white shadow-sm">
                   Register
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </header>
 
-        <section className="mt-12">
-          <h1 className="text-[34px] font-black leading-tight tracking-normal">
-            Good Morning{currentUser ? `, ${currentUser.name}` : ''} <span className="inline-block rotate-12">👋</span>
-          </h1>
-          <p className="mt-1 text-[28px] font-semibold leading-tight text-[#555985]">
-            {currentUser ? 'Welcome back to PAPrez!' : 'Welcome back!'}
-          </p>
-        </section>
+        {/* User Greeting & Cross-Portal Switch Bar */}
+        <section className="mt-6 rounded-2xl bg-white p-4 border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h1 className="text-lg font-black text-slate-900 leading-tight">
+                Good Day{currentUser ? `, ${currentUser.name}` : ''}! 👋
+              </h1>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {currentUser ? `Account: ${currentUser.role}` : 'Instant document printing & pickup'}
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold shrink-0">
+              {currentUser ? currentUser.role : 'Guest'}
+            </span>
+          </div>
 
-        <section className="mt-7 rounded-[24px] border border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(49,65,130,0.08)]">
-          <h2 className="text-[28px] font-black leading-tight">Upload your document</h2>
-          <p className="mt-2 text-lg font-semibold leading-tight text-[#555985]">PDF, DOC, DOCX up to 50MB</p>
-          <Link
-            href={currentUser ? dashboardHref : '/auth/signup?role=CUSTOMER'}
-            className="mt-5 grid min-h-[132px] place-items-center rounded-2xl border-2 border-dashed border-indigo-400 bg-white px-4 py-5 text-center text-blue-600"
-          >
-            <span>
-              <Icon name="upload" className="mx-auto h-16 w-16" />
-              <span className="mt-2 block text-xl font-black">
-                {currentUser ? 'Open Counter to Upload' : 'Tap to upload'}
-              </span>
-            </span>
-          </Link>
-          <div className="mt-4 flex items-center gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-100 text-blue-600">
-              <span className="text-[10px] font-black">PDF</span>
-            </span>
-            <span className="min-w-0 flex-1 truncate text-lg font-semibold">Project_Report.pdf</span>
-            <span className="text-lg font-medium text-[#555985]">2.4 MB</span>
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-blue-600 text-2xl font-black text-white">✓</span>
+          {/* Quick Dual-Portal Access Buttons */}
+          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
+            <Link
+              href="/dashboard/customer"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs border border-blue-200 transition text-center"
+            >
+              <span>🧑</span>
+              <span>Customer Hub</span>
+            </Link>
+            <Link
+              href="/dashboard/print-shop"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 transition text-center"
+            >
+              <span>⚡</span>
+              <span>Shop Terminal</span>
+            </Link>
           </div>
         </section>
 
-        <section className="mt-7">
-          <h2 className="text-[26px] font-black leading-tight">Quick Actions</h2>
-          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+        {/* Document Upload Hero Card */}
+        <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-sm">
+          <h2 className="text-xl font-black text-slate-900 leading-tight">Upload Your Document</h2>
+          <p className="mt-1 text-xs font-medium text-slate-500">PDF, DOC, DOCX up to 50MB with instant preview</p>
+          <Link
+            href="/dashboard/customer"
+            className="mt-3.5 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 p-5 text-center text-blue-600 hover:bg-indigo-50 transition"
+          >
+            <Icon name="upload" className="h-10 w-10 text-blue-600" />
+            <span className="mt-2 block text-base font-black text-slate-900">
+              Tap to Select & Print
+            </span>
+            <span className="text-xs text-slate-500 mt-0.5">Choose page range, color, binding & shop</span>
+          </Link>
+
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-xs">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-indigo-100 text-blue-600 font-black text-[10px]">
+              PDF
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">Sample_Notes.pdf</span>
+            <span className="text-slate-400 font-medium">1.8 MB</span>
+            <span className="h-5 w-5 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center">✓</span>
+          </div>
+        </section>
+
+        {/* Quick Actions Grid */}
+        <section className="mt-4">
+          <h2 className="text-base font-black text-slate-900 px-1 mb-2.5">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-2.5">
             {quickActions.map((action) => (
-              <Link key={action.title} href={action.href} className="flex min-h-[112px] items-center gap-4 rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_14px_38px_rgba(49,65,130,0.08)] md:min-h-[150px] md:flex-col md:items-start md:justify-between">
-                <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${action.color} text-white shadow-[0_14px_26px_rgba(79,70,229,0.17)] md:h-14 md:w-14`}>
-                  <Icon name={action.icon} className="h-8 w-8" />
+              <Link
+                key={action.title}
+                href={action.href}
+                className="flex items-center gap-2.5 rounded-2xl border border-slate-100 bg-white p-3 shadow-xs hover:border-blue-200 transition"
+              >
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${action.color} text-white shadow-xs`}>
+                  <Icon name={action.icon} className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-lg font-black leading-tight">{action.title}</span>
-                  <span className="mt-1 block text-base font-medium leading-tight text-[#555985]">{action.text}</span>
+                  <span className="block text-xs font-black leading-tight text-slate-900 truncate">{action.title}</span>
+                  <span className="block text-[10px] font-medium text-slate-500 truncate mt-0.5">{action.text}</span>
                 </span>
-                <span className="text-3xl font-light text-[#555985] md:hidden">→</span>
               </Link>
             ))}
           </div>
         </section>
 
-        <section className="mt-6 rounded-[24px] border border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(49,65,130,0.08)] md:grid md:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] md:gap-6">
-          <div>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-4">
-              <div className="grid gap-3 pt-1 text-blue-600">
-                <Icon name="upload" className="h-7 w-7" />
-                <Icon name="route" className="h-9 w-9 rounded-full bg-indigo-50 p-1.5" />
+        {/* Nearest Print Hub & Map */}
+        <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2 text-blue-600">
+                <Icon name="route" className="h-5 w-5" />
+                <span className="text-xs font-extrabold uppercase tracking-wider text-blue-600">Nearest Print Hub</span>
               </div>
-              <div>
-                <h2 className="text-xl font-black">Nearest Print Hub</h2>
-                <p className="mt-3 text-lg font-black">PAPrez Print Hub</p>
-                <p className="text-base font-medium text-[#555985]">124 Main Street, Downtown</p>
-              </div>
+              <p className="mt-1 text-base font-black text-slate-900">ABC Xerox & Digital Printing</p>
+              <p className="text-xs text-slate-500 mt-0.5">Shop 4, University Gate Road, Bhubaneswar</p>
             </div>
-            <span className="shrink-0 rounded-xl bg-emerald-50 px-4 py-3 text-base font-black text-emerald-700">1.5 km away</span>
+            <span className="self-start sm:self-auto rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 border border-emerald-200 shrink-0">
+              0.8 km away
+            </span>
           </div>
-          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-100 px-4 py-4 text-lg font-medium text-[#555985]">
-            <Icon name="clock" className="h-6 w-6" />
-            Open · Closes 10:00 PM
+
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <Icon name="clock" className="h-4 w-4 text-blue-600" />
+              Open · 8:00 AM - 10:00 PM
+            </span>
+            <span className="text-emerald-600 font-bold">⚡ Fast Queue</span>
           </div>
-          <a href={osmDirectionsUrl} target="_blank" rel="noreferrer" className="mt-4 flex min-h-14 items-center justify-center gap-6 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-xl font-black text-white shadow-[0_14px_30px_rgba(79,70,229,0.2)]">
-            Get Direction
-            <span className="text-3xl leading-none">→</span>
-          </a>
-          </div>
-          <div className="relative mt-5 h-28 overflow-hidden rounded-2xl bg-slate-100 md:mt-0 md:h-full md:min-h-[220px]">
+
+          {/* Responsive Map Embed */}
+          <div className="relative mt-3 h-36 w-full overflow-hidden rounded-xl bg-slate-100 border border-slate-200 shadow-inner">
             <OpenStreetMapEmbed />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <a
+              href={osmDirectionsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
+            >
+              <span>🧭</span>
+              <span>Directions</span>
+            </a>
+            <Link
+              href="/shop/abc-xerox"
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
+            >
+              <span>🖨️</span>
+              <span>Order Here</span>
+            </Link>
           </div>
         </section>
 
-        <section className="mt-5 rounded-[24px] border border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(49,65,130,0.08)]">
-          <div className="grid grid-cols-5 gap-1">
-            {featureRail.map((feature, index) => (
-              <div key={feature.title} className={`grid justify-items-center px-1 text-center ${index > 0 ? 'border-l border-slate-200' : ''}`}>
-                <span className={`grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br ${feature.color} text-white`}>
-                  <Icon name={feature.icon} className="h-7 w-7" />
+        {/* Feature Rail Carousel */}
+        <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">PAPrez Features</p>
+          <div className="overflow-x-auto no-scrollbar flex gap-2.5 pb-1">
+            {featureRail.map((feature) => (
+              <div
+                key={feature.title}
+                className="shrink-0 w-32 rounded-xl bg-slate-50 border border-slate-100 p-3 text-center flex flex-col items-center justify-between"
+              >
+                <span className={`grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br ${feature.color} text-white shadow-xs`}>
+                  <Icon name={feature.icon} className="h-5 w-5" />
                 </span>
-                <span className="mt-3 text-[13px] font-black leading-tight">{feature.title}</span>
+                <span className="mt-2 text-xs font-bold leading-tight text-slate-800 line-clamp-1">{feature.title}</span>
+                <span className="mt-0.5 text-[10px] text-slate-400 leading-tight line-clamp-1">{feature.text}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="mt-8">
-          <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-[#080f3f]">How it works</h2>
-          <Link href="/how-it-works" className="text-sm font-black text-blue-600">View all</Link>
+        {/* How It Works Responsive Grid */}
+        <section className="mt-4 mb-2">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-base font-black text-slate-900">How It Works</h2>
+            <Link href="/how-it-works" className="text-xs font-bold text-blue-600 hover:underline">
+              Learn more →
+            </Link>
           </div>
-          <div className="grid grid-cols-5 gap-2">
-            {steps.map((step, index) => (
-              <div key={step.number} className="relative grid justify-items-center text-center">
-                {index < steps.length - 1 && <span className="absolute left-[68%] top-4 w-9 border-t-2 border-dashed border-indigo-200" />}
-                <span className={`z-10 grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br ${step.color} text-sm font-black text-white`}>
-                  {index + 1}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {steps.map((step) => (
+              <div
+                key={step.number}
+                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-xs"
+              >
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${step.color} text-xs font-black text-white`}>
+                  {step.number}
                 </span>
-                <span className="mt-3 grid h-16 w-16 place-items-center rounded-2xl border border-slate-100 bg-white text-blue-600 shadow-[0_12px_26px_rgba(49,65,130,0.1)]">
-                  <Icon name={step.icon} className="h-8 w-8" />
-                </span>
-                <span className="mt-3 text-[13px] font-black leading-tight text-[#080f3f]">{step.title}</span>
-                <span className="mt-1 text-xs font-medium leading-tight text-[#555985]">{index === 0 ? 'Your document' : index === 1 ? 'Print settings' : index === 2 ? 'Secure payment' : index === 3 ? 'We print it' : 'Fast delivery'}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-900 leading-tight">{step.title}</p>
+                  <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">{step.text}</p>
+                </div>
               </div>
             ))}
           </div>
         </section>
       </div>
+
+      {/* Persistent Mobile Bottom Navigation Bar on Homepage */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-lg">
+        <Link href="/" className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-extrabold text-blue-600">
+          <span className="text-lg">🏠</span>
+          <span>Home</span>
+        </Link>
+        <Link href="/dashboard/customer" className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold text-slate-600 hover:text-blue-600">
+          <span className="text-lg">🧑</span>
+          <span>Customer</span>
+        </Link>
+        <Link href="/dashboard/print-shop" className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold text-slate-600 hover:text-blue-600">
+          <span className="text-lg">⚡</span>
+          <span>Shop</span>
+        </Link>
+        <Link href="/shop/abc-xerox" className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold text-slate-600 hover:text-blue-600">
+          <span className="text-lg">👁️</span>
+          <span>Counter</span>
+        </Link>
+        {currentUser ? (
+          <button onClick={onLogout} className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold text-rose-600">
+            <span className="text-lg">🚪</span>
+            <span>Logout</span>
+          </button>
+        ) : (
+          <Link href="/auth/login" className="flex flex-col items-center justify-center p-1 rounded-xl text-[10px] font-bold text-slate-600 hover:text-blue-600">
+            <span className="text-lg">🔑</span>
+            <span>Login</span>
+          </Link>
+        )}
+      </nav>
     </main>
   );
 }
