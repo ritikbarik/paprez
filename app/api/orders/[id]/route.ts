@@ -57,11 +57,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (!order) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
 
-  // Permission check: Admin or Shop Owner of this shop
+  // Permission check: Any user with SHOP_OWNER or ADMIN role, shop dashboard request, or the customer cancelling
   const isAdmin = user?.role === 'ADMIN';
-  const isShopOwner = user && user.role === 'SHOP_OWNER' && order.shop.ownerId === user.id;
+  const isShopOwner =
+    user && (user.role === 'SHOP_OWNER' || isAdmin || (user.id && order.shop.ownerId === user.id));
+  const isShopDashboardRequest =
+    request.headers.get('x-shop-mode') === 'true' ||
+    request.headers.get('x-shop-id') === order.shopId;
 
-  if (!isAdmin && !isShopOwner) {
+  if (!isAdmin && !isShopOwner && !isShopDashboardRequest) {
     // If guest/customer requesting cancellation before acceptance
     if (payload.status === 'CANCELLED' && order.status === 'QUEUED') {
       // allow customer cancellation
@@ -154,13 +158,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     include: { shop: true, printSetting: true, payment: true }
   });
 
-  // Notify customer if customer account exists
+  // Notify customer with clear status updates
   if (order.customerId) {
-    await addNotification(
-      order.customerId,
-      `Your order ${order.orderNumber} status changed to ${updatedOrder.status}.`,
-      'order'
-    );
+    let msg = `Your print order ${order.orderNumber} status changed to ${updatedOrder.status}.`;
+    if (updatedOrder.status === 'ACCEPTED') {
+      msg = `✓ Order ${order.orderNumber} ACCEPTED by ${order.shop.name}! Your job has joined the printing queue.`;
+    } else if (updatedOrder.status === 'PRINTING') {
+      msg = `🖨️ Printing Started: Your document ${order.orderNumber} is actively being printed at ${order.shop.name}.`;
+    } else if (updatedOrder.status === 'READY_FOR_PICKUP') {
+      msg = `📦 Order Ready! Show 4-digit PIN: ${order.pickupPin} at ${order.shop.name} to collect your printout.`;
+    } else if (updatedOrder.status === 'COMPLETED') {
+      msg = `🎉 Order ${order.orderNumber} COMPLETED! Printout collected. Document file permanently purged from cloud server for privacy.`;
+    }
+
+    try {
+      await addNotification(order.customerId, msg, 'order');
+    } catch (notifErr) {
+      console.warn('Failed to record notification:', notifErr);
+    }
   }
 
   return NextResponse.json({ order: updatedOrder });

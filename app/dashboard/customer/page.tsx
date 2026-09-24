@@ -49,6 +49,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export default function CustomerDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shops, setShops] = useState<NearbyShop[]>([]);
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; category: string; read: boolean; createdAt: string }>>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingShops, setLoadingShops] = useState(true);
   const [userRole, setUserRole] = useState('CUSTOMER');
@@ -88,6 +89,28 @@ export default function CustomerDashboardPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingShops(false));
+
+    fetch('/api/notifications', { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.notifications) setNotifications(data.notifications);
+      })
+      .catch(() => {});
+  }
+
+  async function handleMarkNotificationRead(id: string) {
+    try {
+      const token = localStorage.getItem('paprez_token');
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ notificationId: id })
+      });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (e) {}
   }
 
   useEffect(() => {
@@ -100,6 +123,9 @@ export default function CustomerDashboardPage() {
     }
     loadCustomerData();
 
+    // Auto-refresh orders and notifications every 5 seconds for live sync
+    const interval = setInterval(loadCustomerData, 5000);
+
     // Auto-detect location on initial load if supported
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -111,6 +137,8 @@ export default function CustomerDashboardPage() {
         () => {}
       );
     }
+
+    return () => clearInterval(interval);
   }, []);
 
   function handleDetectLocation() {
@@ -375,6 +403,43 @@ export default function CustomerDashboardPage() {
               )}
             </div>
 
+            {/* Live Notifications Feed */}
+            {notifications.some((n) => !n.read) && (
+              <div className="rounded-3xl border-2 border-indigo-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-5 sm:p-6 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-indigo-950 font-black text-sm">
+                    <span className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-ping" />
+                    🔔 Live Order Updates & Notifications
+                  </div>
+                  <span className="text-[11px] font-bold text-indigo-700 bg-white/80 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                    {notifications.filter((n) => !n.read).length} new
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {notifications
+                    .filter((n) => !n.read)
+                    .slice(0, 3)
+                    .map((notif) => (
+                      <div
+                        key={notif.id}
+                        className="bg-white rounded-2xl p-3.5 border border-indigo-100 flex items-center justify-between gap-3 shadow-xs"
+                      >
+                        <p className="text-xs text-slate-800 font-semibold leading-relaxed">
+                          {notif.message}
+                        </p>
+                        <button
+                          onClick={() => handleMarkNotificationRead(notif.id)}
+                          className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold transition"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* SECTION 2: RECENT ORDERS & PICKUP PINS */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -383,7 +448,7 @@ export default function CustomerDashboardPage() {
                     <span>📋</span> Your Print Orders
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Track status and provide your 4-digit pickup PIN at the counter
+                    Track live status and show your 4-digit pickup PIN at the counter
                   </p>
                 </div>
                 <span className="text-xs font-bold text-slate-500">{orders.length} orders</span>
@@ -413,7 +478,7 @@ export default function CustomerDashboardPage() {
                               order.status
                             )}`}
                           >
-                            {order.status}
+                            {order.status === 'ACCEPTED' ? '✓ ACCEPTED' : order.status}
                           </span>
                         </div>
 
@@ -424,17 +489,21 @@ export default function CustomerDashboardPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        {order.pickupPin && order.status !== 'COMPLETED' && (
+                        {order.status === 'COMPLETED' ? (
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                            ✓ Handed Over (File Purged)
+                          </span>
+                        ) : order.pickupPin ? (
                           <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold text-center">
                             PIN: <span className="font-mono text-base font-black tracking-widest">{order.pickupPin}</span>
                           </div>
-                        )}
+                        ) : null}
 
                         <Link
                           href={`/order/${order.id}`}
-                          className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700"
+                          className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-xs font-bold text-blue-700 border border-blue-200 transition"
                         >
-                          View Receipt →
+                          Track Status →
                         </Link>
                       </div>
                     </div>

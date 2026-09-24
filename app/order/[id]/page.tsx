@@ -41,25 +41,80 @@ export default function OrderTrackingPage() {
     estimatedWaitMins: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  function fetchOrder() {
-    fetch(`/api/orders/${orderId}`)
+  function playNotificationChime() {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {}
+  }
+
+  function fetchOrder(isInitial = false) {
+    return fetch(`/api/orders/${orderId}`)
       .then((res) => {
         if (!res.ok) throw new Error('Order not found');
         return res.json();
       })
       .then((data) => {
-        setOrder(data.order);
+        setOrder((prev) => {
+          if (prev && prev.status !== data.order.status) {
+            playNotificationChime();
+            let alertMsg = `Order status updated: ${data.order.status}`;
+            if (data.order.status === 'ACCEPTED') {
+              alertMsg = `✓ ${data.order.shop.name} accepted your job! Printing shortly.`;
+            } else if (data.order.status === 'PRINTING') {
+              alertMsg = `🖨️ Printing started at ${data.order.shop.name}!`;
+            } else if (data.order.status === 'READY_FOR_PICKUP') {
+              alertMsg = `📦 Printout ready! Show PIN: ${data.order.pickupPin} at the counter.`;
+            } else if (data.order.status === 'COMPLETED') {
+              alertMsg = `🎉 Order completed! File permanently erased for privacy.`;
+            }
+            setToastMessage(alertMsg);
+            setTimeout(() => setToastMessage(null), 8000);
+          }
+          return data.order;
+        });
         setQueueInfo(data.queueInfo);
+        return data.order;
       })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.error(err);
+        return null;
+      })
+      .finally(() => {
+        if (isInitial) setLoading(false);
+      });
   }
 
   useEffect(() => {
-    fetchOrder();
-    // Poll every 4 seconds for live counter updates
-    const interval = setInterval(fetchOrder, 4000);
+    fetchOrder(true);
+
+    // Request desktop notification permission if supported
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    // Poll every 3 seconds for live counter updates until terminal state
+    const interval = setInterval(async () => {
+      const ord = await fetchOrder();
+      if (ord && (ord.status === 'COMPLETED' || ord.status === 'REJECTED' || ord.status === 'CANCELLED')) {
+        clearInterval(interval);
+      }
+    }, 3000);
+
     return () => clearInterval(interval);
   }, [orderId]);
 
@@ -115,6 +170,24 @@ export default function OrderTrackingPage() {
         </div>
       </header>
 
+      {/* Live Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 text-xs font-bold">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>{toastMessage}</span>
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-slate-400 hover:text-white text-base leading-none shrink-0"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-xl mx-auto px-4 pt-6 space-y-6">
         {/* Status Hero Card */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm text-center">
@@ -146,6 +219,32 @@ export default function OrderTrackingPage() {
                 : 'Waiting in Shop Queue'}
             </h1>
           </div>
+
+          {/* Accepted Banner */}
+          {order.status === 'ACCEPTED' && (
+            <div className="mt-5 p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 text-center space-y-1.5 shadow-xs">
+              <div className="flex items-center justify-center gap-2 text-blue-900 font-extrabold text-sm">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-600 animate-ping" />
+                Shop Accepted Your Print Order!
+              </div>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                <strong>{order.shop.name}</strong> confirmed your job. It is queued on the shop's printer and printing will begin shortly.
+              </p>
+            </div>
+          )}
+
+          {/* Printing Banner */}
+          {order.status === 'PRINTING' && (
+            <div className="mt-5 p-5 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 text-center space-y-1.5 shadow-xs animate-pulse">
+              <div className="flex items-center justify-center gap-2 text-purple-900 font-extrabold text-sm">
+                <span className="text-base">🖨️</span>
+                Printing in Progress...
+              </div>
+              <p className="text-xs text-purple-700 leading-relaxed">
+                Your document is actively printing at <strong>{order.shop.name}</strong>. Your pickup PIN will be shown here as soon as it completes.
+              </p>
+            </div>
+          )}
 
           {/* Pickup PIN Alert Box when Ready */}
           {order.status === 'READY_FOR_PICKUP' && (
@@ -180,8 +279,16 @@ export default function OrderTrackingPage() {
 
           {/* Completed State Guarantee */}
           {order.status === 'COMPLETED' && (
-            <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 font-semibold">
-              🔒 <strong>Privacy Fulfilled:</strong> Your document file has been automatically and permanently deleted from our servers.
+            <div className="mt-5 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-2 border-emerald-300 text-center space-y-2 shadow-sm">
+              <div className="flex items-center justify-center gap-2 text-emerald-950 font-black text-base">
+                <span>🎉</span> Order Completed & Handed Over!
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed max-w-sm mx-auto">
+                Thank you for printing with <strong>{order.shop.name}</strong>. Your physical copies have been collected.
+              </p>
+              <div className="p-3 bg-white/80 rounded-xl border border-emerald-200 text-[11px] text-slate-700 font-semibold flex items-center justify-center gap-1.5">
+                <span>🔒</span> Document file was permanently erased from server storage for your total privacy.
+              </div>
             </div>
           )}
 
@@ -242,9 +349,25 @@ export default function OrderTrackingPage() {
           <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-500">Order Specifications</h3>
 
           <div className="space-y-2.5 text-xs text-slate-700 divide-y divide-slate-100">
-            <div className="flex justify-between pt-1">
+            <div className="flex justify-between items-center pt-1">
               <span className="text-slate-500">Document</span>
-              <span className="font-bold text-slate-900 truncate max-w-[200px]">{order.title}</span>
+              <div className="flex items-center gap-2 max-w-[240px]">
+                <span className="font-bold text-slate-900 truncate">{order.title}</span>
+                {order.documentUrl && !order.documentUrl.startsWith('[DELETED') && !order.documentUrl.startsWith('[PURGED') ? (
+                  <a
+                    href={`/api/orders/${order.id}/document`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-blue-600 hover:text-blue-800 font-bold underline text-[11px]"
+                  >
+                    View Doc ↗
+                  </a>
+                ) : (
+                  <span className="shrink-0 text-[10px] bg-slate-100 text-slate-400 font-medium px-1.5 py-0.5 rounded">
+                    🔒 Purged
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-between pt-2.5">

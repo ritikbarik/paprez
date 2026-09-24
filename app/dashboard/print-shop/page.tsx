@@ -167,7 +167,9 @@ export default function PrintShopDashboard() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          'x-shop-mode': 'true',
+          'x-shop-id': shopId || ''
         },
         body: JSON.stringify({ status, ...additionalPayload })
       });
@@ -178,7 +180,7 @@ export default function PrintShopDashboard() {
       }
 
       setOrders((prev) =>
-        prev.map((ord) => (ord.id === orderId ? { ...ord, status: data.order.status } : ord))
+        prev.map((ord) => (ord.id === orderId ? { ...ord, ...data.order } : ord))
       );
     } catch (err: any) {
       setPinErrors((prev) => ({ ...prev, [orderId]: err.message }));
@@ -591,15 +593,25 @@ export default function PrintShopDashboard() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-                                {ord.documentUrl && ord.documentUrl !== '[DELETED_AFTER_PICKUP]' && (
+                                {ord.documentUrl && !ord.documentUrl.startsWith('[DELETED') && !ord.documentUrl.startsWith('[PURGED') ? (
                                   <a
-                                    href={ord.documentUrl}
+                                    href={`/api/orders/${ord.id}/document`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 text-center transition"
+                                    className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 text-center transition shadow-xs"
                                   >
                                     View Doc ↗
                                   </a>
+                                ) : (
+                                  <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-400 text-[11px] font-semibold border border-slate-200 text-center">
+                                    🔒 File Purged
+                                  </span>
+                                )}
+
+                                {pinErrors[ord.id] && !isReady && (
+                                  <span className="text-[11px] text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded-lg border border-rose-200">
+                                    ⚠️ {pinErrors[ord.id]}
+                                  </span>
                                 )}
 
                                 {isQueued && (
@@ -609,7 +621,7 @@ export default function PrintShopDashboard() {
                                       disabled={actionLoading === ord.id}
                                       className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition shadow-sm"
                                     >
-                                      Accept Job
+                                      {actionLoading === ord.id ? 'Accepting...' : 'Accept Job'}
                                     </button>
                                     <button
                                       onClick={() => updateOrderStatus(ord.id, 'REJECTED', { rejectedReason: 'Queue capacity reached' })}

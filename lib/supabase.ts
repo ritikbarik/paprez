@@ -54,12 +54,8 @@ export async function uploadDocument(
       }
 
       if (!uploadRes.error && uploadRes.data) {
-        // Create signed URL or public URL
-        const { data: signedData } = await supabaseAdmin.storage
-          .from(BUCKET_NAME)
-          .createSignedUrl(storagePath, 60 * 60 * 24); // 24 hours validity for processing
-
-        const fileUrl = signedData?.signedUrl || `/api/uploads/file?key=${encodeURIComponent(storagePath)}`;
+        // Return masked proxy URL so the raw Supabase project URL is NEVER exposed to users or browser
+        const fileUrl = `/api/uploads/file?key=${encodeURIComponent(storagePath)}`;
         return { url: fileUrl, key: storagePath, isCloud: true };
       } else if (uploadRes.error) {
         console.warn('Supabase upload error:', uploadRes.error.message);
